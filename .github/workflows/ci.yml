@@ -26,6 +26,10 @@ jobs:
 
       - name: Run test suite
         working-directory: backend
-        # No ANTHROPIC_API_KEY in CI → the live-agent injection tests skip
-        # automatically; the deterministic tool/policy-fact tests still run.
+        # ANTHROPIC_API_KEY is read from repo secrets so the live injection
+        # suite runs in CI. If the secret is ever absent (e.g. a fork PR),
+        # those tests skip automatically and the deterministic tool/policy-fact
+        # tests still run — CI stays green either way.
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: python -m pytest tests/ -q

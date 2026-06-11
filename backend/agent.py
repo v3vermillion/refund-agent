@@ -33,6 +33,14 @@ MODEL = "claude-haiku-4-5"
 MAX_TOKENS = 1024
 MAX_TOOL_ITERATIONS = 8  # bounded loop — never spin forever
 
+# Resilience for transient API failures. The Anthropic SDK already retries a
+# couple of times internally; this adds bounded application-level backoff so a
+# rate-limit (429) or a brief server blip degrades into a polite "try again"
+# reply instead of a 500 from /chat — important for a live demo.
+RETRYABLE_STATUS = {429, 500, 502, 503, 504, 529}
+MAX_API_RETRIES = 3
+MAX_BACKOFF_S = 10
+
 DECISION_RE = re.compile(r"<<<DECISION:\s*(APPROVED|DENIED|ESCALATED|NONE)\s*>>>", re.IGNORECASE)
 INJECTION_RE = re.compile(r"<<<INJECTION>>>", re.IGNORECASE)
 
@@ -137,6 +145,56 @@ def _get_client() -> anthropic.Anthropic:
     return _client
 
 
+def _retry_after_seconds(err: anthropic.APIStatusError) -> float | None:
+    """Honor a Retry-After header if the API sent one (seconds), else None."""
+    try:
+        value = err.response.headers.get("retry-after")
+        return float(value) if value is not None else None
+    except (AttributeError, ValueError, TypeError):
+        return None
+
+
+def _create_message(client: anthropic.Anthropic, **kwargs: Any):
+    """Call messages.create with bounded backoff on rate-limit / transient 5xx.
+
+    Retries (respecting Retry-After on 429) up to MAX_API_RETRIES, then re-raises
+    so the caller can degrade gracefully. Returns (response, retries_used).
+    """
+    retries = 0
+    while True:
+        try:
+            return client.messages.create(**kwargs), retries
+        except (anthropic.APIConnectionError, anthropic.APITimeoutError):
+            if retries >= MAX_API_RETRIES:
+                raise
+            retries += 1
+            time.sleep(min(2 ** retries, MAX_BACKOFF_S))
+        except anthropic.APIStatusError as e:
+            if e.status_code not in RETRYABLE_STATUS or retries >= MAX_API_RETRIES:
+                raise
+            retries += 1
+            wait = _retry_after_seconds(e) or min(2 ** retries, MAX_BACKOFF_S)
+            time.sleep(wait)
+
+
+def _busy_result(retries: int, total_tokens: int, start: float) -> dict[str, Any]:
+    """Graceful degrade when the API is unavailable after retries — never a 500."""
+    return {
+        "reply": (
+            "I'm sorry — we're experiencing unusually high demand right now and I "
+            "couldn't complete your request. Please try again in a moment."
+        ),
+        "decision": None,
+        "tool_calls": [],
+        "reasoning": "Anthropic API unavailable after retries (rate limit / transient error); "
+        "degraded gracefully without a decision.",
+        "retries": retries,
+        "tokens": total_tokens,
+        "latency_ms": int((time.time() - start) * 1000),
+        "injection_flagged": False,
+    }
+
+
 def _parse_sentinels(text: str) -> tuple[str | None, bool, str]:
     """Extract decision + injection flag from the model text and strip them out.
 
@@ -183,21 +241,20 @@ def run_agent_turn(history: list[dict[str, Any]], user_message: str) -> dict[str
     final_text = ""
     for _ in range(MAX_TOOL_ITERATIONS):
         try:
-            response = client.messages.create(
+            response, api_retries = _create_message(
+                client,
                 model=MODEL,
                 max_tokens=MAX_TOKENS,
                 system=system_prompt,
                 tools=TOOL_SCHEMAS,
                 messages=history,
             )
-        except anthropic.APIStatusError as e:
-            # one bounded retry on transient server errors, then surface gracefully
-            if e.status_code >= 500 and retries == 0:
-                retries += 1
-                time.sleep(1)
-                continue
-            raise
+        except (anthropic.APIStatusError, anthropic.APIConnectionError):
+            # rate-limited or a server blip that outlasted our retries — degrade
+            # into a polite "try again" reply rather than 500-ing the request
+            return _busy_result(retries + MAX_API_RETRIES, total_tokens, start)
 
+        retries += api_retries
         total_tokens += response.usage.input_tokens + response.usage.output_tokens
         history.append({"role": "assistant", "content": response.content})
 

@@ -34,7 +34,9 @@ export default function ChatWindow() {
     const content = (text ?? input).trim();
     if (!content || busy) return;
     setInput("");
-    setMessages((m) => [...m, { role: "user", text: content }]);
+    // [[retry]] is an internal demo trigger consumed by the backend — don't render it in the chat.
+    const shown = content.replace(/\[\[retry\]\]/gi, "").trim() || content;
+    setMessages((m) => [...m, { role: "user", text: shown }]);
     setBusy(true);
     try {
       const res = await sendChat(sessionId, content);

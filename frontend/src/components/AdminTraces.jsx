@@ -126,6 +126,32 @@ export default function AdminTraces() {
                     )}
                   </div>
 
+                  {t.retry_events && t.retry_events.length > 0 && (
+                    <div className="trace-field">
+                      <div className="field-label">
+                        Retries ({t.retries}) — resilience path exercised
+                      </div>
+                      <div className="retry-events">
+                        {t.retry_events.map((ev, i) => (
+                          <div className="retry-event" key={i}>
+                            <span className="retry-badge">attempt {ev.attempt}</span>
+                            <div className="retry-body">
+                              <div className="retry-cause">
+                                {ev.error}
+                                {ev.status ? ` · HTTP ${ev.status}` : ""} · backed off {ev.wait_ms} ms → retried
+                              </div>
+                              <div className="retry-note">{ev.detail}</div>
+                            </div>
+                          </div>
+                        ))}
+                        <div className="retry-outcome">
+                          ✓ Recovered — request succeeded after {t.retries}{" "}
+                          {t.retries === 1 ? "retry" : "retries"}.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="trace-stats-row">
                     <MiniStat label="Decision" value={t.decision || "—"} />
                     <MiniStat label="Tokens" value={t.tokens} />

@@ -598,3 +598,41 @@ p.muted {
   font-weight: 600;
   font-family: var(--mono);
 }
+
+/* always-visible slim scrollbar for the trace list (macOS hides overlay scrollbars) */
+.trace-list { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+.trace-list::-webkit-scrollbar { width: 10px; }
+.trace-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 5px; }
+.trace-list::-webkit-scrollbar-track { background: transparent; }
+
+/* ---- MOBILE / responsive (phones, <=600px) ---- */
+@media (max-width: 600px) {
+  .app { padding: 0 12px; }
+
+  /* top bar: brand + tabs on one row, health status wraps below */
+  .topbar { flex-wrap: wrap; gap: 12px 14px; padding: 12px 2px; }
+  .tabs { margin-left: auto; }
+  .brand-sub { display: none; }
+  .health { width: 100%; }
+
+  h2 { font-size: 16px; }
+  p.muted { font-size: 12px; }
+
+  /* chat + admin headers wrap; admin stats get their own full-width row */
+  .chat-head, .admin-head { flex-wrap: wrap; gap: 10px; padding: 14px 16px; }
+  .admin-stats { width: 100%; justify-content: space-between; gap: 8px; }
+
+  .messages { padding: 16px 14px; }
+  .bubble { max-width: 88%; font-size: 15px; }
+
+  .suggestions { padding: 0 14px 12px; }
+
+  .composer { padding: 12px 14px; gap: 8px; }
+  .composer input { font-size: 16px; }   /* >=16px stops iOS auto-zoom on focus */
+  .composer button { padding: 0 16px; }
+
+  .trace-list { padding: 12px 14px; }
+  .trace-summary { padding: 12px 13px; gap: 10px; }
+  .trace-badges { gap: 6px; }
+  .trace-detail { padding: 4px 14px 14px; }  /* drop deep left indent on mobile */
+}

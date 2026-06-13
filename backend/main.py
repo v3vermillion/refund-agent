@@ -13,6 +13,7 @@ logic lives here.
 from __future__ import annotations
 
 import os
+import re
 import uuid
 from datetime import datetime, timezone
 
@@ -55,6 +56,14 @@ class ChatResponse(BaseModel):
     trace_id: str
 
 
+# Demo-only: include this marker anywhere in a chat message to inject ONE real
+# transient rate-limit (HTTP 429) on that turn's first model call. It exercises
+# the genuine retry/backoff path so the trace shows honest retry telemetry; the
+# marker is stripped before the message is processed or stored. Normal messages
+# never retry. See agent._injected_rate_limit.
+DEMO_RETRY_MARKER = "[[retry]]"
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -65,7 +74,15 @@ def chat(req: ChatRequest) -> ChatResponse:
     session_id = req.session_id or str(uuid.uuid4())
     session = store.get_session(session_id)
 
-    result = run_agent_turn(session["history"], req.message)
+    # Demo-only: opt in to a real injected retry via the marker, then strip it so
+    # the stored/displayed message stays clean. Normal messages never retry.
+    message = req.message
+    inject_retry_faults = 0
+    if DEMO_RETRY_MARKER in message.lower():
+        inject_retry_faults = 1
+        message = re.sub(re.escape(DEMO_RETRY_MARKER), "", message, flags=re.IGNORECASE).strip()
+
+    result = run_agent_turn(session["history"], message, inject_retry_faults=inject_retry_faults)
 
     trace_id = str(uuid.uuid4())
     store.add_trace(
@@ -73,12 +90,13 @@ def chat(req: ChatRequest) -> ChatResponse:
             "trace_id": trace_id,
             "session_id": session_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "user_message": req.message,
+            "user_message": message,
             "agent_reply": result["reply"],
             "decision": result["decision"],
             "tool_calls": result["tool_calls"],
             "reasoning": result["reasoning"],
             "retries": result["retries"],
+            "retry_events": result.get("retry_events", []),
             "tokens": result["tokens"],
             "latency_ms": result["latency_ms"],
             "injection_flagged": result["injection_flagged"],

@@ -154,30 +154,76 @@ def _retry_after_seconds(err: anthropic.APIStatusError) -> float | None:
         return None
 
 
-def _create_message(client: anthropic.Anthropic, **kwargs: Any):
+def _injected_rate_limit() -> anthropic.RateLimitError:
+    """Build a REAL anthropic.RateLimitError to exercise the retry path on demand.
+
+    This is a clearly-labeled demo / fault-injection helper. It raises the exact
+    exception type a genuine HTTP 429 produces, so the real backoff/retry code in
+    `_create_message` runs *unmodified* and the trace records honest retry
+    telemetry (not a hardcoded number). It fires only when a request opts in (see
+    `inject_faults` below, wired up in main.py) — never on its own.
+    """
+    import httpx
+
+    request = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    response = httpx.Response(429, headers={"retry-after": "1"}, request=request)
+    return anthropic.RateLimitError(
+        "Injected transient rate limit (demo fault injection) — exercises the real retry/backoff path.",
+        response=response,
+        body=None,
+    )
+
+
+def _create_message(client: anthropic.Anthropic, *, inject_faults: int = 0, **kwargs: Any):
     """Call messages.create with bounded backoff on rate-limit / transient 5xx.
 
     Retries (respecting Retry-After on 429) up to MAX_API_RETRIES, then re-raises
-    so the caller can degrade gracefully. Returns (response, retries_used).
+    so the caller can degrade gracefully. Returns (response, retries_used, events)
+    where `events` is a list describing each retry (error, HTTP status, backoff,
+    detail) so the admin trace can show *what* triggered the retry, not just a count.
+
+    `inject_faults` (demo only): raise that many real RateLimitErrors before the
+    first real API call, so the genuine retry path can be demonstrated on demand.
     """
     retries = 0
+    events: list[dict[str, Any]] = []
     while True:
         try:
-            return client.messages.create(**kwargs), retries
-        except (anthropic.APIConnectionError, anthropic.APITimeoutError):
+            if inject_faults > 0:
+                inject_faults -= 1
+                raise _injected_rate_limit()
+            return client.messages.create(**kwargs), retries, events
+        except (anthropic.APIConnectionError, anthropic.APITimeoutError) as e:
             if retries >= MAX_API_RETRIES:
                 raise
             retries += 1
-            time.sleep(min(2 ** retries, MAX_BACKOFF_S))
+            wait = min(2 ** retries, MAX_BACKOFF_S)
+            events.append({
+                "attempt": retries,
+                "error": type(e).__name__,
+                "status": None,
+                "wait_ms": int(wait * 1000),
+                "detail": str(e) or "connection / timeout error",
+            })
+            time.sleep(wait)
         except anthropic.APIStatusError as e:
             if e.status_code not in RETRYABLE_STATUS or retries >= MAX_API_RETRIES:
                 raise
             retries += 1
             wait = _retry_after_seconds(e) or min(2 ** retries, MAX_BACKOFF_S)
+            events.append({
+                "attempt": retries,
+                "error": type(e).__name__,
+                "status": e.status_code,
+                "wait_ms": int(wait * 1000),
+                "detail": str(e),
+            })
             time.sleep(wait)
 
 
-def _busy_result(retries: int, total_tokens: int, start: float) -> dict[str, Any]:
+def _busy_result(
+    retries: int, total_tokens: int, start: float, retry_events: list[dict[str, Any]] | None = None
+) -> dict[str, Any]:
     """Graceful degrade when the API is unavailable after retries — never a 500."""
     return {
         "reply": (
@@ -189,6 +235,7 @@ def _busy_result(retries: int, total_tokens: int, start: float) -> dict[str, Any
         "reasoning": "Anthropic API unavailable after retries (rate limit / transient error); "
         "degraded gracefully without a decision.",
         "retries": retries,
+        "retry_events": retry_events or [],
         "tokens": total_tokens,
         "latency_ms": int((time.time() - start) * 1000),
         "injection_flagged": False,
@@ -218,15 +265,21 @@ def _text_from_content(content: list[Any]) -> str:
     return "".join(b.text for b in content if getattr(b, "type", None) == "text")
 
 
-def run_agent_turn(history: list[dict[str, Any]], user_message: str) -> dict[str, Any]:
+def run_agent_turn(
+    history: list[dict[str, Any]], user_message: str, inject_retry_faults: int = 0
+) -> dict[str, Any]:
     """Run one conversational turn through the agent loop.
 
     `history` is the prior Anthropic-format message list for this session; it is
     MUTATED in place to append this turn's user message, assistant turns, and
     tool results so the caller can persist conversation state.
 
+    `inject_retry_faults` (demo only): number of real transient rate-limits to
+    inject on the FIRST model call this turn, so the genuine retry/backoff path
+    can be demonstrated on demand. 0 in normal operation.
+
     Returns a dict with: reply, decision, tool_calls, reasoning, retries,
-    tokens, latency_ms, injection_flagged.
+    retry_events, tokens, latency_ms, injection_flagged.
     """
     client = _get_client()
     system_prompt = _build_system_prompt()
@@ -236,13 +289,16 @@ def run_agent_turn(history: list[dict[str, Any]], user_message: str) -> dict[str
     tool_calls_log: list[dict[str, Any]] = []
     total_tokens = 0
     retries = 0
+    retry_events: list[dict[str, Any]] = []
+    faults_left = inject_retry_faults
     start = time.time()
 
     final_text = ""
     for _ in range(MAX_TOOL_ITERATIONS):
         try:
-            response, api_retries = _create_message(
+            response, api_retries, api_events = _create_message(
                 client,
+                inject_faults=faults_left,
                 model=MODEL,
                 max_tokens=MAX_TOKENS,
                 system=system_prompt,
@@ -252,9 +308,11 @@ def run_agent_turn(history: list[dict[str, Any]], user_message: str) -> dict[str
         except (anthropic.APIStatusError, anthropic.APIConnectionError):
             # rate-limited or a server blip that outlasted our retries — degrade
             # into a polite "try again" reply rather than 500-ing the request
-            return _busy_result(retries + MAX_API_RETRIES, total_tokens, start)
+            return _busy_result(retries + MAX_API_RETRIES, total_tokens, start, retry_events)
 
+        faults_left = 0  # only inject on the first model call of the turn
         retries += api_retries
+        retry_events.extend(api_events)
         total_tokens += response.usage.input_tokens + response.usage.output_tokens
         history.append({"role": "assistant", "content": response.content})
 
@@ -298,6 +356,7 @@ def run_agent_turn(history: list[dict[str, Any]], user_message: str) -> dict[str
         "tool_calls": tool_calls_log,
         "reasoning": reasoning,
         "retries": retries,
+        "retry_events": retry_events,
         "tokens": total_tokens,
         "latency_ms": latency_ms,
         "injection_flagged": injection_flagged,

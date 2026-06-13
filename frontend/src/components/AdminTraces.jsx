@@ -68,7 +68,13 @@ export default function AdminTraces() {
               key={t.trace_id}
               className={`trace-card ${t.injection_flagged ? "trace-flagged" : ""}`}
             >
-              <button className="trace-summary" onClick={() => toggle(t.trace_id)}>
+              <div
+                className="trace-summary"
+                role="button"
+                tabIndex={0}
+                onClick={() => toggle(t.trace_id)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && toggle(t.trace_id)}
+              >
                 <span className="caret">{open ? "▾" : "▸"}</span>
                 <div className="trace-summary-main">
                   <div className="trace-user">{t.user_message}</div>
@@ -90,7 +96,7 @@ export default function AdminTraces() {
                   {t.injection_flagged && <span className="badge badge-injection">⚠ Injection</span>}
                   <DecisionBadge decision={t.decision} />
                 </div>
-              </button>
+              </div>
 
               {open && (
                 <div className="trace-detail">

@@ -432,6 +432,7 @@ p.muted {
 }
 
 .trace-card {
+  flex-shrink: 0;            /* keep natural height; let the trace list scroll instead of squashing cards */
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--surface);

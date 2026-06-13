@@ -53,12 +53,15 @@ def test_transient_5xx_then_success(monkeypatch):
         text = types.SimpleNamespace(type="text", text="Hi <<<DECISION:NONE>>>")
         return types.SimpleNamespace(usage=usage, content=[text], stop_reason="end_turn")
 
-    resp, retries = agent._create_message(
+    resp, retries, events = agent._create_message(
         _FakeClient(flaky), model="m", max_tokens=1, system="s", tools=[], messages=[]
     )
 
     assert retries == 1
     assert resp.stop_reason == "end_turn"
+    # the retry is recorded as a structured event (powers the admin trace)
+    assert len(events) == 1
+    assert events[0]["status"] == 503
 
 
 def test_retry_after_header_parsed():

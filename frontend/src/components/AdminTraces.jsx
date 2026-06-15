@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchTraces } from "../api.js";
 import DecisionBadge from "./DecisionBadge.jsx";
+import { manipulationLabel } from "./ChatWindow.jsx";
 
 export default function AdminTraces() {
   const [traces, setTraces] = useState([]);
@@ -47,7 +48,7 @@ export default function AdminTraces() {
         </div>
         <div className="admin-stats">
           <Stat label="Traces" value={traces.length} />
-          <Stat label="Injection flags" value={flaggedCount} tone={flaggedCount ? "alert" : null} />
+          <Stat label="Manipulation flags" value={flaggedCount} tone={flaggedCount ? "alert" : null} />
           <button className="ghost-btn" onClick={load}>
             Refresh
           </button>
@@ -93,7 +94,11 @@ export default function AdminTraces() {
                   </div>
                 </div>
                 <div className="trace-badges">
-                  {t.injection_flagged && <span className="badge badge-injection">⚠ Injection</span>}
+                  {t.injection_flagged && (
+                    <span className="badge badge-injection">
+                      ⚠ {manipulationLabel(t.manipulation_type)}
+                    </span>
+                  )}
                   <DecisionBadge decision={t.decision} />
                 </div>
               </div>
@@ -154,6 +159,9 @@ export default function AdminTraces() {
 
                   <div className="trace-stats-row">
                     <MiniStat label="Decision" value={t.decision || "—"} />
+                    {t.injection_flagged && (
+                      <MiniStat label="Threat" value={manipulationLabel(t.manipulation_type)} />
+                    )}
                     <MiniStat label="Tokens" value={t.tokens} />
                     <MiniStat label="Latency" value={`${t.latency_ms} ms`} />
                     <MiniStat label="Retries" value={t.retries} />

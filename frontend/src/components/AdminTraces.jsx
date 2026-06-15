@@ -47,7 +47,7 @@ export default function AdminTraces() {
         </div>
         <div className="admin-stats">
           <Stat label="Traces" value={traces.length} />
-          <Stat label="Injection flags" value={flaggedCount} tone={flaggedCount ? "alert" : null} />
+          <Stat label="Manipulation flags" value={flaggedCount} tone={flaggedCount ? "alert" : null} />
           <button className="ghost-btn" onClick={load}>
             Refresh
           </button>
@@ -93,7 +93,7 @@ export default function AdminTraces() {
                   </div>
                 </div>
                 <div className="trace-badges">
-                  {t.injection_flagged && <span className="badge badge-injection">⚠ Injection</span>}
+                  {t.injection_flagged && <span className="badge badge-injection">⚠ Manipulation</span>}
                   <DecisionBadge decision={t.decision} />
                 </div>
               </div>

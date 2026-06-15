@@ -97,7 +97,7 @@ export default function ChatWindow() {
                 <div className="bubble-decision">
                   {m.decision && <DecisionBadge decision={m.decision} />}
                   {m.injectionFlagged && (
-                    <span className="badge badge-injection">⚠ Injection blocked</span>
+                    <span className="badge badge-injection">⚠ Manipulation blocked</span>
                   )}
                 </div>
               )}

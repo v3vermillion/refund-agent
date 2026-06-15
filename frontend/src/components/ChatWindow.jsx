@@ -43,7 +43,13 @@ export default function ChatWindow() {
       const res = await sendChat(sessionId, content);
       setMessages((m) => [
         ...m,
-        { role: "agent", text: res.reply, decision: res.decision, traceId: res.trace_id },
+        {
+          role: "agent",
+          text: res.reply,
+          decision: res.decision,
+          injectionFlagged: res.injection_flagged,
+          traceId: res.trace_id,
+        },
       ]);
     } catch (e) {
       setMessages((m) => [
@@ -87,9 +93,12 @@ export default function ChatWindow() {
         {messages.map((m, i) => (
           <div key={i} className={`row row-${m.role}`}>
             <div className={`bubble bubble-${m.role} ${m.error ? "bubble-error" : ""}`}>
-              {m.role === "agent" && m.decision && (
+              {m.role === "agent" && (m.decision || m.injectionFlagged) && (
                 <div className="bubble-decision">
-                  <DecisionBadge decision={m.decision} />
+                  {m.decision && <DecisionBadge decision={m.decision} />}
+                  {m.injectionFlagged && (
+                    <span className="badge badge-injection">⚠ Injection blocked</span>
+                  )}
                 </div>
               )}
               <div className="bubble-text">{m.text}</div>
@@ -109,7 +118,9 @@ export default function ChatWindow() {
         )}
       </div>
 
-      {messages.length <= 1 && (
+      {/* Persisted across the conversation so demo prompts stay tappable (e.g. the
+          identity bypass after Jane is already verified). Hidden only while awaiting a reply. */}
+      {!busy && (
         <div className="suggestions">
           {SUGGESTIONS.map((s, i) => {
             const label = s.replace(/\[\[retry\]\]/gi, "").trim();

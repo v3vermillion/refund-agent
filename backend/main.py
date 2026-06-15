@@ -53,6 +53,7 @@ class ChatResponse(BaseModel):
     session_id: str
     reply: str
     decision: str | None
+    injection_flagged: bool
     trace_id: str
 
 
@@ -107,6 +108,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         session_id=session_id,
         reply=result["reply"],
         decision=result["decision"],
+        injection_flagged=result["injection_flagged"],
         trace_id=trace_id,
     )
 

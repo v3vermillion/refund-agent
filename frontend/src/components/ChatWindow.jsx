@@ -43,7 +43,13 @@ export default function ChatWindow() {
       const res = await sendChat(sessionId, content);
       setMessages((m) => [
         ...m,
-        { role: "agent", text: res.reply, decision: res.decision, traceId: res.trace_id },
+        {
+          role: "agent",
+          text: res.reply,
+          decision: res.decision,
+          injectionFlagged: res.injection_flagged,
+          traceId: res.trace_id,
+        },
       ]);
     } catch (e) {
       setMessages((m) => [
@@ -87,9 +93,12 @@ export default function ChatWindow() {
         {messages.map((m, i) => (
           <div key={i} className={`row row-${m.role}`}>
             <div className={`bubble bubble-${m.role} ${m.error ? "bubble-error" : ""}`}>
-              {m.role === "agent" && m.decision && (
+              {m.role === "agent" && (m.decision || m.injectionFlagged) && (
                 <div className="bubble-decision">
-                  <DecisionBadge decision={m.decision} />
+                  {m.decision && <DecisionBadge decision={m.decision} />}
+                  {m.injectionFlagged && (
+                    <span className="badge badge-injection">⚠ Injection blocked</span>
+                  )}
                 </div>
               )}
               <div className="bubble-text">{m.text}</div>

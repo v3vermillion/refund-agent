@@ -113,9 +113,11 @@ Returns a list of all reasoning traces (for the admin dashboard).
     ],
     "reasoning": "Order ORD-1009 is final_sale=true → policy section 3 → deny.",
     "retries": 0,
+    "retry_events": [],              // per-retry detail (error, HTTP status, backoff_ms) when retries > 0
     "tokens": 412,
     "latency_ms": 1840,
-    "injection_flagged": true        // true if the agent detected a manipulation attempt
+    "injection_flagged": false,      // true if a manipulation attempt was detected
+    "manipulation_type": null        // when flagged: social_engineering | impersonation | prompt_injection | coercion
   }
 ]
 ```

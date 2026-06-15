@@ -12,6 +12,16 @@ frontend. Synthetic data is flat JSON, so it runs anywhere with no database to c
 
 -----
 
+## Demo
+
+📹 **Video walkthrough (~3 min):** <https://loom.com/share/95df1ebddd2f4482855dd472a0b265e1>
+
+A clean approve, the agent **classifying and refusing a social-engineering bypass**, a high-value
+**escalation**, and the **admin trace** — tool I/O, reasoning, manipulation classification, token
+cost, latency, and a real retry/back-off on a transient failure.
+
+-----
+
 ## Quick start (≈ 3 minutes)
 
 > **Prerequisites:** Python 3.10+, Node 18+, and an Anthropic API key.

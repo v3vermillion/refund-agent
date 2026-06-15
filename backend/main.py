@@ -54,6 +54,7 @@ class ChatResponse(BaseModel):
     reply: str
     decision: str | None
     injection_flagged: bool
+    manipulation_type: str | None
     trace_id: str
 
 
@@ -101,6 +102,7 @@ def chat(req: ChatRequest) -> ChatResponse:
             "tokens": result["tokens"],
             "latency_ms": result["latency_ms"],
             "injection_flagged": result["injection_flagged"],
+            "manipulation_type": result.get("manipulation_type"),
         }
     )
 
@@ -109,6 +111,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         reply=result["reply"],
         decision=result["decision"],
         injection_flagged=result["injection_flagged"],
+        manipulation_type=result.get("manipulation_type"),
         trace_id=trace_id,
     )
 

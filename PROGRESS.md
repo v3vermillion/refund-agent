@@ -26,9 +26,11 @@ Living continuity doc. Update after each completed step so a fresh session can r
 - **Decision wire values:** `APPROVED | DENIED | ESCALATED` (null until a final decision is reached).
 - **Architecture separation:** tools fetch/compute facts only; ALL policy reasoning is in agent.py.
   `issue_refund` is idempotent (errors on already_refunded) and is the *only* tool that mutates.
-- **Decision signaling:** the agent emits a machine-readable `<<<DECISION:...>>>` /
-  `<<<INJECTION>>>` sentinel that the backend parses and strips from the user-facing reply, so
-  the trace's `decision` / `injection_flagged` fields are exact, not regex-guessed from prose.
+- **Decision signaling:** the agent emits machine-readable `<<<DECISION:...>>>` and
+  `<<<MANIPULATION:category>>>` sentinels (categories: social_engineering, impersonation,
+  prompt_injection, coercion) that the backend parses and strips from the user-facing reply, so
+  the trace's `decision`, `injection_flagged`, and `manipulation_type` fields are exact, not
+  regex-guessed from prose.
 - **Sessions:** in-memory per `session_id` (conversation history + verified customer identity).
 - **Traces:** in-memory list in store.py, newest-first via GET /traces.
 

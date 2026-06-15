@@ -7,7 +7,7 @@ function newSessionId() {
   return (crypto.randomUUID && crypto.randomUUID()) || `sess-${Date.now()}`;
 }
 
-// Ordered to match the demo script: approve (with hidden retry trigger) → escalate → identity/injection.
+// Ordered to match the demo script: approve (with hidden retry trigger) → escalate → identity / social-engineering.
 const SUGGESTIONS = [
   "[[retry]] I'd like a refund on my Wireless Headphones. Email jane.doe@example.com, order ORD-1001.",
   "I'd like a refund on my 4K OLED Television. Email diego.romero@example.com, order ORD-1006.",

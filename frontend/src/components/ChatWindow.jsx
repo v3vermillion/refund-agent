@@ -109,7 +109,9 @@ export default function ChatWindow() {
         )}
       </div>
 
-      {messages.length <= 1 && (
+      {/* Persisted across the conversation so demo prompts stay tappable (e.g. the
+          identity bypass after Jane is already verified). Hidden only while awaiting a reply. */}
+      {!busy && (
         <div className="suggestions">
           {SUGGESTIONS.map((s, i) => {
             const label = s.replace(/\[\[retry\]\]/gi, "").trim();

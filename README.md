@@ -37,6 +37,12 @@ Three walkthroughs of the running app — shortest to deepest:
 | **~5 min** | **[Comprehensive walkthrough](https://www.loom.com/share/931c950988d04398b3a39d1c1f31f899)** | The same, plus more of the manipulation test set and a closer read of the reasoning traces. |
 | **~19 min** | **[Full deep dive](https://www.loom.com/share/9516c7b7e3a041babdf6c3f7d1664800)** | The complete build: architecture and separation of concerns, every policy branch, the full prompt-injection suite, and the resilience / retry path end to end. |
 
+**The admin dashboard — every decision is a replayable trace:**
+
+![Admin dashboard showing per-turn reasoning traces: a classified social-engineering refusal (denied), a high-value escalation, and a clean approval whose trace shows recovery from a transient rate-limit via bounded back-off](docs/admin-trace.png)
+
+<sub>Three turns from one session — a social-engineering bypass attempt (classified and **denied**), a high-value **escalation**, and a clean **approval** whose trace shows the agent recovering from an injected `429` through bounded back-off. Tool I/O, reasoning, token cost, latency, and retries are captured for every turn.</sub>
+
 ---
 
 ## What this demonstrates

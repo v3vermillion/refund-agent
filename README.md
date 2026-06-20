@@ -9,7 +9,6 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-backend-009688?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-Vite-61DAFB?logo=react&logoColor=white)
 ![Anthropic Claude](https://img.shields.io/badge/Anthropic-Claude%20(tool%20use)-D97757)
-![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 
 A customer chats with the agent and asks for a refund. The agent verifies identity, looks up the
 order in a mock CRM, applies the refund policy in a fixed precedence, and decides:
@@ -30,7 +29,7 @@ frontend. Synthetic data is flat JSON — it runs anywhere with no database to c
 
 ## ▶ See it in action
 
-Three videos, by how much time you have. Each is a real run against the live UI — nothing staged.
+Three walkthroughs of the running app — shortest to deepest:
 
 | Length | Video | What it covers |
 |--------|-------|----------------|
@@ -281,11 +280,6 @@ Built by **David Kelly** — full-stack developer focused on AI product engineer
 - Live AI product: **[fitnessforge.ai](https://fitnessforge.ai)** — a multi-tenant AI coaching
   platform (Next.js / FastAPI / Postgres + pgvector RAG, async job queues, a Critic-Agent evaluation
   loop)
-- Portfolio: **[vermillionaxis.tech](https://vermillionaxis.tech)**
 
 This repo is a focused demonstration of production-minded agent engineering: clean separation of
 concerns, deterministic policy enforcement, manipulation resistance, and first-class observability.
-
-## License
-
-[MIT](LICENSE) © 2026 David Kelly

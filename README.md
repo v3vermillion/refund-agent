@@ -29,19 +29,35 @@ frontend. Synthetic data is flat JSON — it runs anywhere with no database to c
 
 ## ▶ See it in action
 
-Three walkthroughs of the running app — shortest to deepest:
+Two walkthroughs of the running app — a full run-through and a deep dive:
 
 | Length | Video | What it covers |
 |--------|-------|----------------|
-| **~3 min** | **[Quick demo](https://www.loom.com/share/95df1ebddd2f4482855dd472a0b265e1)** | The fastest look: a clean approve, the agent **classifying and refusing a social-engineering bypass**, a high-value **escalation**, and one **admin trace** — including a real retry/back-off on an injected transient failure. |
-| **~5 min** | **[Comprehensive walkthrough](https://www.loom.com/share/931c950988d04398b3a39d1c1f31f899)** | The same, plus more of the manipulation test set and a closer read of the reasoning traces. |
+| **~5 min** | **[Walkthrough](https://www.loom.com/share/931c950988d04398b3a39d1c1f31f899)** | A clean approve, the agent **classifying and refusing a social-engineering bypass**, a high-value **escalation**, and the **admin traces** — including a real retry/back-off on an injected transient failure, plus a read through the manipulation test set. |
 | **~19 min** | **[Full deep dive](https://www.loom.com/share/9516c7b7e3a041babdf6c3f7d1664800)** | The complete build: architecture and separation of concerns, every policy branch, the full prompt-injection suite, and the resilience / retry path end to end. |
+
+**The admin dashboard — every decision is a replayable trace:**
+
+![Admin dashboard listing reasoning traces — a high-value escalation, a social-engineering attempt classified and denied, and a clean approval that recovered from a transient rate-limit](docs/admin-trace.jpeg)
+
+<sub>At a glance: a high-value **escalation**, a social-engineering attempt **classified and denied**, and a clean **approval** that recovered from a transient rate-limit (**1 retry**). Each row carries its own tokens, latency, and retry count; expanding a trace shows the full tool I/O, reasoning, and decision telemetry.</sub>
+
+<details>
+<summary><b>One trace, expanded</b> — tool I/O, the resilience path, and decision telemetry</summary>
+
+<br>
+
+![An expanded trace — the agent's three tool calls (lookup_customer, lookup_order, issue_refund) with full inputs and outputs, a real HTTP 429 backed off and recovered after one retry, and a telemetry row showing decision, tokens, latency, retries, and session](docs/admin-trace-expanded.jpeg)
+
+<sub>The approval above, expanded — the agent's tool calls (`lookup_customer` → `lookup_order` → `issue_refund`), the resilience path (a genuine `429` backed off 1000 ms and **recovered after 1 retry**), and the per-turn telemetry.</sub>
+
+</details>
 
 ---
 
 ## What this demonstrates
 
-The senior-signal decisions a reviewer can verify in the code:
+The deliberate engineering decisions behind the build:
 
 - **Decision logic is separated from tools.** Tools fetch facts and act; they contain *no*
   approve/deny/escalate logic. All policy reasoning lives in [`agent.py`](backend/agent.py), against
@@ -177,8 +193,8 @@ admin trace, which also counts total **Manipulation flags**:
 - **API** (`backend/main.py`) — a thin layer over three endpoints: `/chat`, `/traces`, `/health`.
 - **Agent** (`backend/agent.py`) — the LLM loop, system prompt, and policy. All decisions are made
   here by reasoning, **not** hardcoded in the tools.
-- **Tools** (`backend/tools.py`) — fetch facts and act. They also compute exact values (like
-  `days_since_purchase`) so the LLM never does date math.
+- **Tools** (`backend/tools.py`) — fetch facts and act. They also compute the exact values (like
+  `days_since_purchase` and `within_window`) the agent then reasons against.
 - **Store** (`backend/store.py`) — loads the JSON data and holds the in-memory trace + session log.
 
 The **refund policy** lives in `backend/data/refund_policy.md` and is the agent's single source of
@@ -261,14 +277,9 @@ Deliberate choices for this scope, and what I'd change for production:
 - **Flat JSON over a database** keeps setup frictionless. In production, `store.py` would sit behind
   Postgres using the same interface — no other module would change.
 - **Identity is email-based** for this demo. In production I'd add real auth/2FA; the agent's
-  "no chat-based bypass" rule (claimed relationships, "I'm the admin," etc. never unlock another
-  account) is already enforced and would carry over unchanged.
-- **Dates are computed in Python, not by the LLM**, because models are unreliable at date math. The
-  tool returns `days_since_purchase` and `within_window`; the agent just reads them.
+  no-chat-based-bypass rule is already enforced and would carry over unchanged.
 - **Traces are in-memory** for simplicity. In production they'd be persisted and shipped to an
   observability platform; the trace schema is already structured for that.
-- **Escalation is policy-triggered, never argument-triggered** — a customer can't talk their way to a
-  human override. This is the core of the agent's resilience.
 
 ---
 
@@ -277,9 +288,9 @@ Deliberate choices for this scope, and what I'd change for production:
 Built by **David Kelly** — full-stack developer focused on AI product engineering.
 
 - GitHub: **[@v3vermillion](https://github.com/v3vermillion)**
-- Live AI product: **[fitnessforge.ai](https://fitnessforge.ai)** — a multi-tenant AI coaching
-  platform (Next.js / FastAPI / Postgres + pgvector RAG, async job queues, a Critic-Agent evaluation
-  loop)
+- Live AI product: **[fitnessforge.ai](https://fitnessforge.ai)** *(private beta — login-gated)* — a
+  multi-tenant AI coaching platform (Next.js / FastAPI / Postgres + pgvector RAG, async job queues, a
+  Critic-Agent evaluation loop)
 
 This repo is a focused demonstration of production-minded agent engineering: clean separation of
 concerns, deterministic policy enforcement, manipulation resistance, and first-class observability.
